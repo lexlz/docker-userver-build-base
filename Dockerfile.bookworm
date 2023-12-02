@@ -1,0 +1,113 @@
+ARG USERVER_FEATURE_MONGODB=OFF
+ARG USERVER_FEATURE_POSTGRESQL=OFF
+ARG USERVER_FEATURE_REDIS=OFF
+ARG USERVER_FEATURE_GRPC=OFF
+ARG USERVER_FEATURE_MYSQL=OFF
+# ARG USERVER_FEATURE_CLICKHOUSE=OFF
+# ARG USERVER_FEATURE_RABBITMQ=OFF
+
+FROM debian:bookworm-slim AS universal
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" \
+    > /etc/apt/sources.list
+
+RUN apt update
+
+# Set current timezone
+RUN echo "Europe/Moscow" > /etc/timezone
+RUN ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+
+# Generate locale
+RUN apt install --yes locales
+RUN sed -i 's/^# *\(en_US.UTF-8\)/\1/' /etc/locale.gen
+RUN echo "export LC_ALL=en_US.UTF-8" >> ~/.bashrc
+RUN echo "export LANG=en_US.UTF-8" >> ~/.bashrc
+RUN echo "export LANGUAGE=en_US.UTF-8" >> ~/.bashrc
+RUN locale-gen en_US.UTF-8
+RUN echo LANG=en_US.UTF-8 >> /etc/default/locale
+
+RUN apt install --yes \
+    git \
+    vim \
+    curl/bookworm-backports \
+    cmake \
+    ccache \
+    build-essential \
+    clang \
+    clang-format \
+    clang-tidy \
+    libboost1.81-dev \
+    libboost-program-options1.81-dev \
+    libboost-filesystem1.81-dev \
+    libboost-locale1.81-dev \
+    libboost-regex1.81-dev \
+    libboost-stacktrace1.81-dev \
+    libboost-iostreams1.81-dev \
+    virtualenv \
+    python3-dev \
+    python3-venv \
+    libssl-dev \
+    libcrypto++-dev \
+    libyaml-cpp-dev \
+    libfmt-dev \
+    libcctz-dev \
+    libjemalloc-dev \
+    libgmock-dev \
+    libgtest-dev \
+    libbenchmark-dev
+
+RUN apt clean all
+
+FROM universal AS core
+
+RUN apt install --yes \
+    libc-ares-dev \
+    libcurl4-openssl-dev/bookworm-backports \
+    libhttp-parser-dev \
+    libnghttp2-dev \ 
+    libev-dev
+
+RUN [ "${USERVER_FEATURE_MONGODB}" = "ON" ] && apt install --yes \
+    libmongoc-dev \
+    || :
+
+RUN [ "${USERVER_FEATURE_POSTGRESQL}" = "ON" ] && apt install --yes \
+    postgresql-15 \
+    postgresql-server-dev-15 \
+    libldap2-dev \
+    libkrb5-dev \
+    || :
+
+RUN [ "${USERVER_FEATURE_REDIS}" = "ON" ] && apt install --yes \
+    libhiredis-dev \
+    redis-server \
+    || :
+
+RUN [ "${USERVER_FEATURE_GRPC}" = "ON" ] && apt install --yes \
+    protobuf-compiler-grpc \
+    libgrpc-dev \
+    libgrpc++-dev \
+    || :
+
+RUN [ "${USERVER_FEATURE_MYSQL}" = "ON" ] && apt install --yes \
+    libmariadb-dev \
+    || :
+
+# RUN apt install --yes \
+#     binutils-dev \
+#     libgrpc++1 \
+#     libprotoc-dev \
+#     python3-protobuf \
+#     python3-jinja2 \
+#     python3-voluptuous \
+#     libspdlog-dev \
+#     wget \
+#     chrpath \
+#     sudo \
+#     gnupg2
+
+RUN apt clean all
+
+EXPOSE 8080
